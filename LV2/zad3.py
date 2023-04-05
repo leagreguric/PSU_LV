@@ -25,11 +25,24 @@ mirror=np. fliplr(img)
 plt.figure(4)
 plt.imshow(mirror,cmap='gray')
 
-
+resize=img[::10,::10]
 
 plt.figure(5)
 plt.imshow(resize,cmap='gray')
 
+redovi = img.shape[0] 
+stupci = img.shape[1] 
+dg = stupci//4
+gg = stupci//2
+
+pr_img = img.copy()
+for i in range(redovi):
+    for j in range(stupci):
+        if (j < dg or j > gg): 
+            pr_img[i][j] = 0
+
+plt.figure(6)
+plt.imshow(pr_img,cmap='gray')
 
 plt.show()
 
