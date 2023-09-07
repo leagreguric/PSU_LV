@@ -1,33 +1,75 @@
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
+import sklearn.linear_model as lm
+from sklearn.metrics import mean_squared_error
+from sklearn.preprocessing import PolynomialFeatures
 
-# ucitavanje ociscenih podataka
-df = pd.read_csv('cars_processed.csv')
-print(df.info())
+def non_func(x):
+    y = 1.6345 - 0.6235*np.cos(0.6067*x) - 1.3501*np.sin(0.6067*x) - 1.1622 * np.cos(2*x*0.6067) - 0.9443*np.sin(2*x*0.6067)
+    return y
 
-# razliciti prikazi
-sns.pairplot(df, hue='fuel')#Pokazuje SVE
+def add_noise(y):
+    np.random.seed(14)
+    varNoise = np.max(y) - np.min(y)
+    y_noisy = y + 0.1*varNoise*np.random.normal(0,1,len(y))
+    return y_noisy
 
-sns.relplot(data=df, x='km_driven', y='selling_price', hue='fuel')
-df = df.drop(['name','mileage'], axis=1)#pokazuje ovisnost cijene o prijedjenim kilometrima i vrstu motora
+x = np.linspace(1,10,50)
+y_true = non_func(x)
+y_measured = add_noise(y_true)
 
-obj_cols = df.select_dtypes(object).columns.values.tolist()
-num_cols = df.select_dtypes(np.number).columns.values.tolist()
+x = x[:, np.newaxis]
+y_measured = y_measured[:, np.newaxis]
 
-fig = plt.figure(figsize=[15,8])
-for col in range(len(obj_cols)):
-    plt.subplot(2,2,col+1)
-    sns.countplot(x=obj_cols[col], data=df)
+degrees = [2, 6, 15]
+MSE_train = []
+MSE_test = []
+models = []
 
-df.boxplot(by ='fuel', column =['selling_price'], grid = False)
-#
+for degree in degrees:
+# make polynomial features
+    poly = PolynomialFeatures(degree=degree)
+    xnew = poly.fit_transform(x)
 
-df.hist(['selling_price'], grid = False)
-#
+    np.random.seed(12)
+    indeksi = np.random.permutation(len(xnew))
+    indeksi_train = indeksi[0:int(np.floor(0.7*len(xnew)))]
+    indeksi_test = indeksi[int(np.floor(0.7*len(xnew)))+1:len(xnew)]
 
-tabcorr = df.corr()
-sns.heatmap(df.corr(), annot=True, linewidths=2, cmap= 'coolwarm') 
+    xtrain = xnew[indeksi_train,]
+    ytrain = y_measured[indeksi_train]
 
+    xtest = xnew[indeksi_test,] 
+    ytest = y_measured[indeksi_test]
+
+    linearModel = lm.LinearRegression()
+    linearModel.fit(xtrain,ytrain)
+
+    ytrain_p = linearModel.predict(xtrain)
+    MSE_train.append(mean_squared_error(ytrain, ytrain_p))
+
+    ytest_p = linearModel.predict(xtest)
+    MSE_test.append(mean_squared_error(ytest, ytest_p))
+
+    models.append(linearModel)
+
+plt.figure(1)
+plt.plot(degrees, MSE_train, 'o-', label='train')
+plt.plot(degrees, MSE_test, 's-', label='test')
+plt.xlabel('Degree')
+plt.ylabel('MSE')
+plt.legend(loc=1)
 plt.show()
+
+plt.figure(2)
+plt.plot(x, y_true, label='f')
+
+for i, model in enumerate(models):
+    xnew = PolynomialFeatures(degrees[i]).fit_transform(x)
+    plt.plot(x, model.predict(xnew), label='degree {}'.format(degrees[i]))
+
+    plt.xlabel('x')
+    plt.ylabel('y')
+    plt.plot(xtrain[:,1], ytrain, 'ok', label='train')
+    plt.legend(loc=4)
+    plt.show()
